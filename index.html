@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema de Análise de Cartas de Crédito</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- SheetJS CDN (para futura integração) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body class="bg-gradient-to-br from-blue-100 via-white to-blue-50 min-h-screen">
+  <div class="max-w-7xl mx-auto p-4 md:p-8">
+    <h1 class="text-5xl font-extrabold mb-10 text-center text-blue-900 tracking-tight drop-shadow flex items-center justify-center gap-3">
+      <svg xmlns='http://www.w3.org/2000/svg' class='h-10 w-10 text-blue-400' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 4v12' /></svg>
+      Sistema de Análise de Cartas de Crédito Contempladas
+    </h1>
+
+    <!-- Upload de Planilha -->
+    <section class="bg-white rounded-3xl shadow-xl p-8 mb-10 border border-blue-200">
+      <h2 class="text-2xl font-bold mb-4 text-blue-700 flex items-center gap-2"><svg xmlns='http://www.w3.org/2000/svg' class='h-7 w-7 text-blue-400' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 4v12' /></svg>1. Importação de Planilha (.xlsx)</h2>
+      <input type="file" id="fileInput" accept=".xlsx" class="block w-full text-sm text-gray-700 file:mr-4 file:py-3 file:px-6 file:rounded-xl file:border-0 file:text-base file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-300 shadow" />
+      <p class="text-xs text-gray-500 mt-2">A planilha deve conter os cabeçalhos exatos conforme especificação.</p>
+    </section>
+
+    <!-- Pré-visualização das Cartas -->
+    <section id="previewSection" class="bg-white rounded-3xl shadow-xl p-8 mb-10 border border-blue-200 hidden">
+      <h2 class="text-2xl font-bold mb-4 text-blue-700 flex items-center gap-2"><svg xmlns='http://www.w3.org/2000/svg' class='h-7 w-7 text-blue-400' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9' /></svg>Pré-visualização das Cartas (5 primeiras)</h2>
+      <div class="overflow-x-auto rounded-xl border border-gray-200">
+        <table id="previewTable" class="min-w-full text-sm md:text-base">
+          <thead class="bg-blue-100">
+            <tr id="previewTableHeader"></tr>
+          </thead>
+          <tbody id="previewTableBody"></tbody>
+        </table>
+      </div>
+      <button id="importAllBtn" class="mt-6 px-8 py-3 bg-blue-600 text-white font-semibold rounded-xl shadow hover:bg-blue-700 transition text-lg flex items-center gap-2"><svg xmlns='http://www.w3.org/2000/svg' class='h-5 w-5' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M12 4v16m8-8H4' /></svg>Importar todas</button>
+    </section>
+
+    <!-- Tabela de Dados -->
+    <section class="bg-white rounded-3xl shadow-xl p-8 mb-10 border border-blue-200">
+      <h2 class="text-2xl font-bold mb-4 text-blue-700 flex items-center gap-2"><svg xmlns='http://www.w3.org/2000/svg' class='h-7 w-7 text-blue-400' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M3 10h1l2 7h12l2-7h1' /></svg>2. Visualização da Tabela</h2>
+      <div class="flex flex-wrap items-center gap-4 mb-4">
+        <label for="filtroCod" class="font-semibold text-blue-700">Filtrar por Cod:</label>
+        <input id="filtroCod" type="text" placeholder="Digite o código" class="border rounded-xl px-3 py-2 bg-blue-50 text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300 w-32 shadow-sm" />
+        <label for="filtroSegmento" class="font-semibold text-blue-700">Segmento:</label>
+        <select id="filtroSegmento" class="border rounded-xl px-3 py-2 bg-blue-50 text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300 w-36 shadow-sm">
+          <option value="">Todos</option>
+        </select>
+        <label for="filtroAdministradora" class="font-semibold text-blue-700">Administradora:</label>
+        <select id="filtroAdministradora" class="border rounded-xl px-3 py-2 bg-blue-50 text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300 w-44 shadow-sm">
+          <option value="">Todas</option>
+        </select>
+        <label for="filtroClassificacao" class="font-semibold text-blue-700">Classificação:</label>
+        <select id="filtroClassificacao" class="border rounded-xl px-3 py-2 bg-blue-50 text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300 w-36 shadow-sm">
+          <option value="">Todas</option>
+          <option value="Excelente">Excelente</option>
+          <option value="Bom">Bom</option>
+          <option value="Médio">Médio</option>
+          <option value="Fraco">Fraco</option>
+        </select>
+      </div>
+      <div id="filtrosAtivos" class="flex flex-wrap gap-2 mb-4"></div>
+      <div class="overflow-x-auto rounded-xl border border-gray-200">
+        <table id="dataTable" class="min-w-full text-sm md:text-base">
+          <thead class="bg-blue-100">
+            <tr id="tableHeader"></tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+      <div id="pagination" class="flex flex-wrap justify-center items-center gap-2 mt-6"></div>
+    </section>
+
+    <!-- Meus Critérios -->
+    <section class="bg-white rounded-3xl shadow-xl p-8 mb-10 border border-blue-200">
+      <h2 class="text-2xl font-bold mb-4 text-blue-700 flex items-center gap-2"><svg xmlns='http://www.w3.org/2000/svg' class='h-7 w-7 text-blue-400' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M9 17v-2a4 4 0 014-4h3a4 4 0 014 4v2M9 17v1a3 3 0 006 0v-1M9 17H7a2 2 0 01-2-2v-5a2 2 0 012-2h10a2 2 0 012 2v5a2 2 0 01-2 2h-2' /></svg>3. Meus Critérios</h2>
+      <div id="criteriosContainer" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Interface dinâmica de critérios -->
+      </div>
+      <div class="flex flex-wrap gap-4 mt-8">
+        <button id="addCriterioBtn" class="px-8 py-3 bg-blue-600 text-white font-semibold rounded-xl shadow hover:bg-blue-700 transition text-lg">Adicionar Critério</button>
+        <button id="aplicarCriteriosBtn" class="px-8 py-3 bg-green-600 text-white font-semibold rounded-xl shadow hover:bg-green-700 transition text-lg">Aplicar Critérios</button>
+      </div>
+    </section>
+
+    <!-- Exportação -->
+    <section class="bg-white rounded-3xl shadow-xl p-8 mb-10 border border-blue-200 flex flex-wrap gap-4 justify-center">
+      <button class="px-8 py-3 bg-green-600 text-white font-semibold rounded-xl shadow hover:bg-green-700 transition flex items-center gap-2 text-lg"><svg xmlns='http://www.w3.org/2000/svg' class='h-6 w-6' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 4v12' /></svg>Exportar XLSX</button>
+      <button class="px-8 py-3 bg-yellow-500 text-white font-semibold rounded-xl shadow hover:bg-yellow-600 transition flex items-center gap-2 text-lg"><svg xmlns='http://www.w3.org/2000/svg' class='h-6 w-6' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M12 8v4l3 3m6 0a9 9 0 11-18 0 9 9 0 0118 0z' /></svg>Exportar CSV</button>
+      <button class="px-8 py-3 bg-red-600 text-white font-semibold rounded-xl shadow hover:bg-red-700 transition flex items-center gap-2 text-lg"><svg xmlns='http://www.w3.org/2000/svg' class='h-6 w-6' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 21H5a2 2 0 01-2-2V7a2 2 0 012-2h4l2-2h2l2 2h4a2 2 0 012 2v12a2 2 0 01-2 2z' /></svg>Exportar PDF</button>
+    </section>
+  </div>
+  <div id="detalheModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden">
+    <div class="bg-white rounded-3xl shadow-2xl border-4 border-blue-200 max-w-2xl w-full p-8 relative max-h-[80vh] flex flex-col">
+      <button id="fecharModalBtn" class="absolute top-3 right-4 text-gray-400 hover:text-red-500 text-3xl font-bold z-10">&times;</button>
+      <h3 class="text-3xl font-bold mb-6 text-blue-700 flex items-center gap-2"><svg xmlns='http://www.w3.org/2000/svg' class='h-7 w-7 text-blue-400' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M15 12a3 3 0 11-6 0 3 3 0 016 0z' /><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z' /></svg>Detalhes da Carta</h3>
+      <div id="detalheConteudo" class="overflow-y-auto flex-1"></div>
+    </div>
+  </div>
+  <div id="toastFeedback" class="fixed top-6 right-6 z-50 bg-green-100 text-green-800 px-6 py-3 rounded-xl shadow-lg flex items-center gap-3 text-base font-semibold border border-green-300 opacity-0 pointer-events-none transition-all duration-300">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+    <span id="toastFeedbackMsg">Ação executada com sucesso!</span>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html> 
