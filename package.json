@@ -1,0 +1,30 @@
+{
+  "name": "sistema-de-analise-de-carta-de-credito",
+  "version": "1.0.0",
+  "description": "Sistema de análise de carta de crédito em JavaScript puro",
+  "main": "script.js",
+  "scripts": {
+    "dev": "live-server",
+    "start": "live-server",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "analise",
+    "carta de credito",
+    "javascript",
+    "frontend"
+  ],
+  "author": "Higor Ferreira Reis",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Higor-Ferreira-Reis/AnalisedecartaOfc.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Higor-Ferreira-Reis/AnalisedecartaOfc/issues"
+  },
+  "homepage": "https://github.com/Higor-Ferreira-Reis/AnalisedecartaOfc#readme",
+  "devDependencies": {
+    "live-server": "^1.2.2"
+  }
+}
