@@ -1,3 +1,5 @@
+/* script.js — SAC sem coluna "Ação" + faixas robustas (<= e ordenação) */
+
 // =========================
 // Cabeçalhos fixos da tabela
 // =========================
@@ -9,8 +11,7 @@ const headers = [
   "Entrada",
   "Parcelas",
   "Valor das Parcelas ",
-  "Classificação",
-  "Ação",
+  "Classificação"
 ];
 
 let tableData = [];   // dados atuais da tabela
@@ -58,7 +59,7 @@ function limparSelecionadas() {
 }
 
 // =========================
-// Utilitários de moeda/num
+/* Utilitários de moeda/num */
 // =========================
 function formatarReal(valor) {
   if (valor === null || valor === undefined || valor === '') return '';
@@ -71,6 +72,7 @@ function formatarReal(valor) {
   if (isNaN(num)) return String(valor);
   return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
+
 function parseNumber(valor) {
   if (valor === null || valor === undefined || valor === '') return 0;
   const num = Number(String(valor).toString()
@@ -82,7 +84,62 @@ function parseNumber(valor) {
   return isNaN(num) ? 0 : num;
 }
 
+// =========================
+// Helper: encontrar faixa aplicada (robusta)
+// - Ordena "Menor que" por valor
+// - Usa <= para "Menor que" (inclusivo)
+// - "Entre" trata ordem invertida e é inclusivo [min,max]
+// =========================
+function encontrarFaixaAplicada(faixas, valorCelula) {
+  if (!faixas || faixas.length === 0) return null;
+
+  // Cópia defensiva
+  let lista = [...faixas];
+
+  // Se todas são "Menor que", ordena por valor crescente
+  const todasMenorQue = lista.every(f => f && f.cond === 'Menor que' && !isNaN(parseFloat(String(f.valor).replace(',', '.'))));
+  if (todasMenorQue) {
+    lista.sort((a, b) => parseFloat(String(a.valor).replace(',', '.')) - parseFloat(String(b.valor).replace(',', '.')));
+  }
+
+  // Varre e aplica condição
+  for (const faixa of lista) {
+    const raw = String(faixa.valor ?? '');
+    const alvo = parseFloat(raw.replace(',', '.'));
+
+    if (faixa.cond === 'Menor que' && !isNaN(alvo)) {
+      if (valorCelula <= alvo) return faixa; // inclusivo
+    }
+
+    if (faixa.cond === 'Maior que' && !isNaN(alvo)) {
+      if (valorCelula > alvo) return faixa;
+    }
+
+    if (faixa.cond === 'Igual a' && !isNaN(alvo)) {
+      if (valorCelula === alvo) return faixa;
+    }
+
+    if (faixa.cond === 'Diferente de' && !isNaN(alvo)) {
+      if (valorCelula !== alvo) return faixa;
+    }
+
+    if (faixa.cond === 'Entre') {
+      // aceita formatos "30-40" ou "30 - 40" e trata inversão
+      const [v1, v2] = raw.split('-').map(v => parseFloat(String(v).trim().replace(',', '.')));
+      if (!isNaN(v1) && !isNaN(v2)) {
+        const min = Math.min(v1, v2);
+        const max = Math.max(v1, v2);
+        if (valorCelula >= min && valorCelula <= max) return faixa; // inclusivo
+      }
+    }
+  }
+
+  return null;
+}
+
+// =========================
 // Painel flutuante
+// =========================
 function atualizarPainelSelecionadas() {
   const panel = document.getElementById('selecionadasPanel');
   const btnAbrir = document.getElementById('abrirSelecionadasBtn');
@@ -165,28 +222,18 @@ function getFilteredData() {
     if (filtroCod && !String(row[0]).toLowerCase().includes(filtroCod.toLowerCase())) return false;
     if (filtroSegmento && row[headers.indexOf('Segmento')] !== filtroSegmento) return false;
     if (filtroAdministradora && row[headers.indexOf('Administradora')] !== filtroAdministradora) return false;
-    if (filtroClassificacao && !(row[headers.length - 2] || '').startsWith(filtroClassificacao)) return false;
+    if (filtroClassificacao && !(row[headers.length - 1] || '').startsWith(filtroClassificacao)) return false;
     return true;
   });
 }
 
 // =========================
-// Render da Tabela
+/* Render da Tabela */
 // =========================
 function renderTable(headers, data) {
   preencherFiltrosDinamicos();
 
-  const colunasDesejadas = [
-    "Cod",
-    "Segmento",
-    "Administradora",
-    "Credito",
-    "Entrada",
-    "Parcelas",
-    "Valor das Parcelas ",
-    "Classificação",
-    "Ação",
-  ];
+  const colunasDesejadas = headers; // sem "Ação"
   const colunasNaoVazias = headers.map((h) => colunasDesejadas.includes(h));
 
   const thead = document.getElementById('tableHeader');
@@ -243,8 +290,8 @@ function renderTable(headers, data) {
     headers.forEach((h, idx) => {
       if (!colunasNaoVazias[idx]) return;
 
-      if (idx === headers.length - 2) {
-        // Classificação
+      if (idx === headers.length - 1) {
+        // Classificação (agora é a última coluna)
         let classif = row[idx] || '';
         const tdClass = document.createElement('td');
         tdClass.textContent = classif;
@@ -254,16 +301,6 @@ function renderTable(headers, data) {
         else if (classif.startsWith('Médio')) tdClass.className += 'bg-yellow-100 text-yellow-800';
         else if (classif.startsWith('Fraco')) tdClass.className += 'bg-red-100 text-red-700';
         tr.appendChild(tdClass);
-      } else if (idx === headers.length - 1) {
-        // Ação
-        const tdAcao = document.createElement('td');
-        tdAcao.className = "px-2 py-1 border border-gray-200 whitespace-nowrap text-center";
-        const button = document.createElement('button');
-        button.className = "px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center gap-1 ver-btn";
-        button.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>Ver';
-        button.onclick = () => abrirDetalheModal(row, start + rowIdx);
-        tdAcao.appendChild(button);
-        tr.appendChild(tdAcao);
       } else {
         // Outras colunas (formata R$ para Credito, Entrada e Valor das Parcelas)
         const td = document.createElement('td');
@@ -285,7 +322,7 @@ function renderTable(headers, data) {
 }
 
 // =========================
-// Paginação
+/* Paginação */
 // =========================
 function renderPagination(total, totalPages) {
   const pag = document.getElementById('pagination');
@@ -320,7 +357,7 @@ function renderPagination(total, totalPages) {
 }
 
 // =========================
-// Pré-visualização
+/* Pré-visualização */
 // =========================
 function renderPreviewTable(headers, data) {
   const thead = document.getElementById('previewTableHeader');
@@ -328,6 +365,7 @@ function renderPreviewTable(headers, data) {
   thead.innerHTML = '';
   tbody.innerHTML = '';
 
+  // cabeçalhos exatamente como em headers (sem "Ação")
   headers.forEach(h => {
     const th = document.createElement('th');
     th.className = "px-2 py-1 border border-gray-300 whitespace-nowrap";
@@ -335,26 +373,21 @@ function renderPreviewTable(headers, data) {
     thead.appendChild(th);
   });
 
+  // linhas
   data.forEach(row => {
     const tr = document.createElement('tr');
-    for (let i = 0; i < headers.length - 2; i++) {
+
+    headers.forEach((h, i) => {
       const td = document.createElement('td');
       td.className = "px-2 py-1 border border-gray-200 whitespace-nowrap";
-      td.textContent = row[i] !== undefined && row[i] !== null ? row[i] : '';
-      tr.appendChild(td);
-    }
-    const tdClass = document.createElement('td');
-    tdClass.className = "px-2 py-1 border border-gray-200 whitespace-nowrap text-center";
-    tdClass.textContent = '';
-    tr.appendChild(tdClass);
 
-    const tdAcao = document.createElement('td');
-    tdAcao.className = "px-2 py-1 border border-gray-200 whitespace-nowrap text-center";
-    const button = document.createElement('button');
-    button.className = "px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600";
-    button.textContent = 'Editar';
-    tdAcao.appendChild(button);
-    tr.appendChild(tdAcao);
+      if (h === 'Credito' || h === 'Valor das Parcelas ' || h === 'Entrada') {
+        td.textContent = formatarReal(row[i]);
+      } else {
+        td.textContent = row[i] ?? '';
+      }
+      tr.appendChild(td);
+    });
 
     tbody.appendChild(tr);
   });
@@ -365,13 +398,13 @@ function showPreviewSection(show) {
 }
 
 // =========================
-// Critérios (base original)
+/* Critérios (base original) */
 // =========================
 function renderCriterios() {
   const container = document.getElementById('criteriosContainer');
   container.innerHTML = '';
 
-  const ignorar = ["Cod", "Segmento", "Administradora", "Credito", "Classificação", "Ação"];
+  const ignorar = ["Cod", "Segmento", "Administradora", "Credito", "Classificação"]; // sem "Ação"
   const criteriosPorColuna = {
     "Entrada": [
       { cond: 'Menor que', valor: '30', classif: 'Excelente', nota: 4, cor: '#22c55e' },
@@ -395,12 +428,12 @@ function renderCriterios() {
 
   if (!window.criteriosAtivos) {
     window.criteriosAtivos = {};
-    headers.slice(0, -2).forEach(col => {
+    headers.slice(0, -1).forEach(col => {
       if (!ignorar.includes(col)) window.criteriosAtivos[col] = true;
     });
   }
 
-  headers.slice(0, -2).forEach(col => {
+  headers.slice(0, -1).forEach(col => {
     if (ignorar.includes(col)) return;
 
     const faixas = criteriosPorColuna[col] || [
@@ -461,11 +494,11 @@ function renderCriterios() {
 
 function getCriteriosFromUI() {
   const criterios = {};
-  const ignorar = ["Cod", "Segmento", "Administradora", "Credito", "Classificação", "Ação"];
+  const ignorar = ["Cod", "Segmento", "Administradora", "Credito", "Classificação"];
   const critDivs = document.querySelectorAll('#criteriosContainer > div');
   let colIndex = 0;
 
-  headers.slice(0, -2).forEach(col => {
+  headers.slice(0, -1).forEach(col => {
     if (ignorar.includes(col)) return;
 
     if (window.criteriosAtivos && !window.criteriosAtivos[col]) {
@@ -490,7 +523,7 @@ function getCriteriosFromUI() {
 }
 
 // =========================
-// Toast
+/* Toast */
 // =========================
 function showToastFeedback(msg) {
   const toast = document.getElementById('toastFeedback');
@@ -505,7 +538,7 @@ function showToastFeedback(msg) {
 }
 
 // =========================
-// Aplicar critérios
+/* Aplicar critérios (usa encontrarFaixaAplicada) */
 // =========================
 function aplicarCriterios() {
   const criterios = getCriteriosFromUI();
@@ -518,30 +551,19 @@ function aplicarCriterios() {
     const idxCredito = headers.findIndex(h => h.trim().toLowerCase() === 'crédito' || h.trim().toLowerCase() === 'credito');
     const valorCredito = parseNumber(row[idxCredito] || '0');
 
-    headers.slice(0, -2).forEach((col, i) => {
+    headers.slice(0, -1).forEach((col, i) => {
       if (!criterios[col]) return;
 
       let valorCelula;
       if (col.trim().toLowerCase() === 'entrada') {
-        valorCelula = (parseNumber(row[i]) / valorCredito) * 100;
+        valorCelula = valorCredito ? (parseNumber(row[i]) / valorCredito) * 100 : 0;
       } else if (col.trim().toLowerCase().includes('valor') && col.trim().toLowerCase().includes('parcela')) {
-        valorCelula = (parseNumber(row[i]) / valorCredito) * 100;
+        valorCelula = valorCredito ? (parseNumber(row[i]) / valorCredito) * 100 : 0;
       } else {
         valorCelula = parseNumber(row[i]);
       }
 
-      let faixaAplicada = null;
-      for (const faixa of criterios[col]) {
-        if (faixa.cond === 'Menor que' && valorCelula < parseFloat(faixa.valor)) { faixaAplicada = faixa; break; }
-        if (faixa.cond === 'Maior que' && valorCelula > parseFloat(faixa.valor)) { faixaAplicada = faixa; break; }
-        if (faixa.cond === 'Igual a' && valorCelula === parseFloat(faixa.valor)) { faixaAplicada = faixa; break; }
-        if (faixa.cond === 'Diferente de' && valorCelula !== parseFloat(faixa.valor)) { faixaAplicada = faixa; break; }
-        if (faixa.cond === 'Entre') {
-          const [min, max] = faixa.valor.split('-').map(v => parseFloat(v));
-          if (valorCelula >= min && valorCelula <= max) { faixaAplicada = faixa; break; }
-        }
-      }
-
+      const faixaAplicada = encontrarFaixaAplicada(criterios[col], valorCelula);
       if (faixaAplicada) notaTotal += faixaAplicada.nota;
     });
 
@@ -568,7 +590,7 @@ function aplicarCriterios() {
       notaStr = 'N/A';
     }
 
-    row[headers.length - 2] = `${notaStr} (${notaTotal})`;
+    row[headers.length - 1] = `${notaStr} (${notaTotal})`;
   });
 
   renderTable(headers, tableData);
@@ -576,7 +598,7 @@ function aplicarCriterios() {
 }
 
 // =========================
-// Modal de detalhes (estilizado + nota exata por critério)
+/* Modal de detalhes (usa encontrarFaixaAplicada) */
 // =========================
 function abrirDetalheModal(row) {
   const criterios = getCriteriosFromUI();
@@ -584,7 +606,7 @@ function abrirDetalheModal(row) {
   const idxCredito = headers.findIndex(h => h.trim().toLowerCase() === 'crédito' || h.trim().toLowerCase() === 'credito');
   const valorCredito = parseNumber(row[idxCredito] || '0');
 
-  const linhasNotas = headers.slice(0, -2).map((col, i) => {
+  const linhasNotas = headers.slice(0, -1).map((col, i) => {
     if (!criterios[col]) return '';
 
     const lower = col.trim().toLowerCase();
@@ -597,17 +619,7 @@ function abrirDetalheModal(row) {
       valorCelula = parseNumber(row[i]);
     }
 
-    let faixaAplicada = null;
-    for (const faixa of criterios[col]) {
-      if (faixa.cond === 'Menor que' && valorCelula < parseFloat(faixa.valor)) { faixaAplicada = faixa; break; }
-      if (faixa.cond === 'Maior que' && valorCelula > parseFloat(faixa.valor)) { faixaAplicada = faixa; break; }
-      if (faixa.cond === 'Igual a' && valorCelula === parseFloat(faixa.valor)) { faixaAplicada = faixa; break; }
-      if (faixa.cond === 'Diferente de' && valorCelula !== parseFloat(faixa.valor)) { faixaAplicada = faixa; break; }
-      if (faixa.cond === 'Entre') {
-        const [min, max] = (faixa.valor || '').split('-').map(v => parseFloat(v));
-        if (!isNaN(min) && !isNaN(max) && valorCelula >= min && valorCelula <= max) { faixaAplicada = faixa; break; }
-      }
-    }
+    const faixaAplicada = encontrarFaixaAplicada(criterios[col], valorCelula);
 
     if (faixaAplicada) {
       return `
@@ -648,7 +660,7 @@ function abrirDetalheModal(row) {
     <div class="mb-6">
       <table class="min-w-full text-sm">
         <tbody>
-          ${headers.slice(0, -2).map((col, i) => `
+          ${headers.slice(0, -1).map((col, i) => `
             <tr class="border-b last:border-0">
               <td class="font-semibold pr-3 py-1 text-blue-700">${col}</td>
               <td class="py-1">
@@ -708,7 +720,7 @@ function abrirDetalheModal(row) {
 }
 
 // =========================
-// Filtros ativos (chips)
+/* Filtros ativos (chips) */
 // =========================
 function renderFiltrosAtivos() {
   const container = document.getElementById('filtrosAtivos');
@@ -741,7 +753,7 @@ function renderFiltrosAtivos() {
 }
 
 // =========================
-// Importação XLSX + Init
+/* Importação XLSX + Init */
 // =========================
 function init() {
   renderTable(headers, tableData);
@@ -773,17 +785,17 @@ function init() {
 
         const fileData = json.slice(1); // pula linha de headers da planilha
 
+        // Mapeia as colunas para o nosso formato sem "Ação"
         previewData = fileData.map(row => {
           const newRow = [];
-          newRow[0] = row[0] ?? ''; // Cod
-          newRow[1] = row[1] ?? ''; // Segmento
-          newRow[2] = row[2] ?? ''; // Administradora
-          newRow[3] = row[3] ?? ''; // Credito
-          newRow[4] = row[4] ?? ''; // Entrada
-          newRow[5] = row[6] ?? ''; // Parcelas (coluna G)
-          newRow[6] = row[7] ?? ''; // Valor das Parcelas (coluna H)
+          newRow[0] = row[0] ?? ''; // Cod (A)
+          newRow[1] = row[1] ?? ''; // Segmento (B)
+          newRow[2] = row[2] ?? ''; // Administradora (C)
+          newRow[3] = row[3] ?? ''; // Credito (D)
+          newRow[4] = row[4] ?? ''; // Entrada (E)
+          newRow[5] = row[6] ?? ''; // Parcelas (G)
+          newRow[6] = row[7] ?? ''; // Valor das Parcelas (H)
           newRow[7] = '';           // Classificação
-          newRow[8] = '';           // Ação
           return newRow;
         });
 
