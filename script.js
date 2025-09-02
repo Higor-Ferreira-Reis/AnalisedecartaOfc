@@ -419,10 +419,10 @@ function renderCriterios() {
       { cond: 'Menor que', valor: '13', classif: 'Fraco', nota: 1, cor: '#ef4444' }
     ],
     "Valor das Parcelas ": [
-      { cond: 'Menor que', valor: '10', classif: 'Excelente', nota: 4, cor: '#22c55e' },
-      { cond: 'Menor que', valor: '11', classif: 'Bom', nota: 3, cor: '#3b82f6' },
-      { cond: 'Menor que', valor: '12', classif: 'Médio', nota: 2, cor: '#facc15' },
-      { cond: 'Menor que', valor: '13', classif: 'Fraco', nota: 1, cor: '#ef4444' }
+      { cond: 'Menor que', valor: '0,5', classif: 'Excelente', nota: 4, cor: '#22c55e' },
+      { cond: 'Menor que', valor: '0,7', classif: 'Bom', nota: 3, cor: '#3b82f6' },
+      { cond: 'Menor que', valor: '0,9', classif: 'Médio', nota: 2, cor: '#facc15' },
+      { cond: 'Menor que', valor: '1', classif: 'Fraco', nota: 1, cor: '#ef4444' }
     ]
   };
 
